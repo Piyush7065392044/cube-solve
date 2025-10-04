@@ -1,109 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Rubik's Cube Starter</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; margin: 20px; }
-    button { margin: 5px; padding: 10px 15px; font-size: 16px; }
-    #cube-container { margin-top: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Rubik’s Cube – OOP Starter</title>
+    <style>
+        body{font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center;margin-top:30px;background:#f7f7f7}
+        #svgBox svg{margin:20px auto;border:1px solid #ccc;background:#fff}
+        button{margin:4px;padding:6px 10px;font-size:14px}
+        #log{max-width:600px;height:120px;overflow-y:auto;border:1px solid #ccc;background:#fff;padding:8px;margin-top:10px;font-size:13px}
+    </style>
 </head>
 <body>
 
-<h1>Rubik's Cube Starter</h1>
+<h2>Rubik’s Cube – OOP Starter</h2>
+<div id="svgBox"></div>
 
-<button id="scrambleBtn">Scramble Cube</button>
-<button id="solveBtn">Solve Cube (Demo)</button>
+<div>
+    <button onclick="scramble()">Scramble</button>
+    <button onclick="reset()">Reset</button>
+    <button onclick="demoSolve()">Demo Solve (layer-by-layer stub)</button>
+</div>
 
-<div id="cube-container"></div>
+<div id="log"></div>
 
 <script>
-// === Rubik's Cube Class ===
-class RubiksCube {
-  constructor() {
-    this.cube = {
-      U: Array(9).fill('w'), // Up - white
-      D: Array(9).fill('y'), // Down - yellow
-      F: Array(9).fill('g'), // Front - green
-      B: Array(9).fill('b'), // Back - blue
-      L: Array(9).fill('o'), // Left - orange
-      R: Array(9).fill('r')  // Right - red
-    };
-    this.steps = []; // To store rotations
-  }
+/* ---------- 1. OOP Cube representation ---------- */
+class Cube {
+    constructor() {
+        // 6 faces: U, D, F, B, L, R
+        // each face is 3×3 = 9 cells, stored row-major
+        const mkFace = color => Array(9).fill(color);
+        this.U = mkFace('w'); // Up    – white
+        this.D = mkFace('y'); // Down  – yellow
+        this.F = mkFace('g'); // Front – green
+        this.B = mkFace('b'); // Back  – blue
+        this.L = mkFace('o'); // Left  – orange
+        this.R = mkFace('r'); // Right – red
 
-  // Clockwise rotation of a face (simple, edges not fully implemented for demo)
-  rotateFaceClockwise(face) {
-    let f = this.cube[face];
-    this.cube[face] = [f[6], f[3], f[0], f[7], f[4], f[1], f[8], f[5], f[2]];
-    this.steps.push(`Rotate ${face} clockwise`);
-  }
-
-  // Anti-clockwise rotation (just reverse of clockwise)
-  rotateFaceAntiClockwise(face) {
-    let f = this.cube[face];
-    this.cube[face] = [f[2], f[5], f[8], f[1], f[4], f[7], f[0], f[3], f[6]];
-    this.steps.push(`Rotate ${face} anti-clockwise`);
-  }
-
-  // Scramble cube with random rotations
-  scramble(steps = 10) {
-    const faces = ['U','D','F','B','L','R'];
-    for (let i = 0; i < steps; i++) {
-      const face = faces[Math.floor(Math.random() * faces.length)];
-      const clockwise = Math.random() > 0.5;
-      clockwise ? this.rotateFaceClockwise(face) : this.rotateFaceAntiClockwise(face);
+        this.history = []; // optional: store scramble/solve steps
     }
-  }
 
-  // Display cube using getCubeSvg()
-  displayCube() {
-    const colors = Object.values(this.cube).flat().join('');
-    // getCubeSvg(colors) is assumed to return HTML/SVG for cube
-    document.getElementById('cube-container').innerHTML = getCubeSvg(colors);
-  }
+    /* ---------- 2. Manual rotation helpers ---------- */
+    /* 90° clockwise rotation of a 3×3 face */
+    rotateFaceCW(face) {
+        const f = this[face];
+        [f[0],f[1],f[2],f[3],f[4],f[5],f[6],f[7],f[8]] =
+            [f[6],f[3],f[0],f[7],f[4],f[1],f[8],f[5],f[2]];
+    }
+    rotateFaceCCW(face) { // three CW = one CCW
+        this.rotateFaceCW(face);
+        this.rotateFaceCW(face);
+        this.rotateFaceCW(face);
+    }
 
-  // Placeholder solve function
-  solveDemo() {
-    // For demo, just rotate U clockwise twice
-    this.rotateFaceClockwise('U');
-    this.rotateFaceClockwise('U');
-    alert('Demo solve executed. Steps:\n' + this.steps.join('\n'));
-    this.displayCube();
-  }
+    /* ---------- 3. Face turns with adjacent edges ---------- */
+    // notation: U, U', D, D', F, F', B, B', L, L', R, R'
+    U()  { this.rotateFaceCW('U');  this.cycleEdgesU();  this.log('U');  }
+    Uprime() { this.rotateFaceCCW('U'); this.cycleEdgesU(true); this.log("U'"); }
+    D()  { this.rotateFaceCW('D');  this.cycleEdgesD();  this.log('D');  }
+    Dprime() { this.rotateFaceCCW('D'); this.cycleEdgesD(true); this.log("D'"); }
+    F()  { this.rotateFaceCW('F');  this.cycleEdgesF();  this.log('F');  }
+    Fprime() { this.rotateFaceCCW('F'); this.cycleEdgesF(true); this.log("F'"); }
+    B()  { this.rotateFaceCW('B');  this.cycleEdgesB();  this.log('B');  }
+    Bprime() { this.rotateFaceCCW('B'); this.cycleEdgesB(true); this.log("B'"); }
+    L()  { this.rotateFaceCW('L');  this.cycleEdgesL();  this.log('L');  }
+    Lprime() { this.rotateFaceCCW('L'); this.cycleEdgesL(true); this.log("L'"); }
+    R()  { this.rotateFaceCW('R');  this.cycleEdgesR();  this.log('R');  }
+    Rprime() { this.rotateFaceCCW('R'); this.cycleEdgesR(true); this.log("R'"); }
+
+    /* ---------- 4. Edge-cycling helpers ---------- */
+    cycleEdgesU(reverse = false) {
+        const temp = [this.F[0],this.F[1],this.F[2]];
+        if (!reverse) {
+            [this.F[0],this.F[1],this.F[2]] = [this.R[0],this.R[1],this.R[2]];
+            [this.R[0],this.R[1],this.R[2]] = [this.B[0],this.B[1],this.B[2]];
+            [this.B[0],this.B[1],this.B[2]] = [this.L[0],this.L[1],this.L[2]];
+            [this.L[0],this.L[1],this.L[2]] = temp;
+        } else {
+            [this.F[0],this.F[1],this.F[2]] = [this.L[0],this.L[1],this.L[2]];
+            [this.L[0],this.L[1],this.L[2]] = [this.B[0],this.B[1],this.B[2]];
+            [this.B[0],this.B[1],this.B[2]] = [this.R[0],this.R[1],this.R[2]];
+            [this.R[0],this.R[1],this.R[2]] = temp;
+        }
+    }
+    cycleEdgesD(reverse = false) {
+        const temp = [this.F[6],this.F[7],this.F[8]];
+        if (!reverse) {
+            [this.F[6],this.F[7],this.F[8]] = [this.L[6],this.L[7],this.L[8]];
+            [this.L[6],this.L[7],this.L[8]] = [this.B[6],this.B[7],this.B[8]];
+            [this.B[6],this.B[7],this.B[8]] = [this.R[6],this.R[7],this.R[8]];
+            [this.R[6],this.R[7],this.R[8]] = temp;
+        } else {
+            [this.F[6],this.F[7],this.F[8]] = [this.R[6],this.R[7],this.R[8]];
+            [this.R[6],this.R[7],this.R[8]] = [this.B[6],this.B[7],this.B[8]];
+            [this.B[6],this.B[7],this.B[8]] = [this.L[6],this.L[7],this.L[8]];
+            [this.L[6],this.L[7],this.L[8]] = temp;
+        }
+    }
+    cycleEdgesF(reverse = false) {
+        const temp = [this.U[6],this.U[7],this.U[8]];
+        if (!reverse) {
+            [this.U[6],this.U[7],this.U[8]] = [this.L[8],this.L[5],this.L[2]];
+            [this.L[8],this.L[5],this.L[2]] = [this.D[2],this.D[1],this.D[0]];
+            [this.D[2],this.D[1],this.D[0]] = [this.R[6],this.R[3],this.R[0]];
+            [this.R[6],this.R[3],this.R[0]] = temp;
+        } else {
+            [this.U[6],this.U[7],this.U[8]] = [this.R[6],this.R[3],this.R[0]];
+            [this.R[6],this.R[3],this.R[0]] = [this.D[2],this.D[1],this.D[0]];
+            [this.D[2],this.D[1],this.D[0]] = [this.L[8],this.L[5],this.L[2]];
+            [this.L[8],this.L[5],this.L[2]] = temp;
+        }
+    }
+    cycleEdgesB(reverse = false) {
+        const temp = [this.U[0],this.U[1],this.U[2]];
+        if (!reverse) {
+            [this.U[0],this.U[1],this.U[2]] = [this.R[2],this.R[5],this.R[8]];
+            [this.R[2],this.R[5],this.R[8]] = [this.D[8],this.D[7],this.D[6]];
+            [this.D[8],this.D[7],this.D[6]] = [this.L[0],this.L[3],this.L[6]];
+            [this.L[0],this.L[3],this.L[6]] = temp;
+        } else {
+            [this.U[0],this.U[1],this.U[2]] = [this.L[0],this.L[3],this.L[6]];
+            [this.L[0],this.L[3],this.L[6]] = [this.D[8],this.D[7],this.D[6]];
+            [this.D[8],this.D[7],this.D[6]] = [this.R[2],this.R[5],this.R[8]];
+            [this.R[2],this.R[5],this.R[8]] = temp;
+        }
+    }
+    cycleEdgesL(reverse = false) {
+        const temp = [this.U[0],this.U[3],this.U[6]];
+        if (!reverse) {
+            [this.U[0],this.U[3],this.U[6]] = [this.B[8],this.B[5],this.B[2]];
+            [this.B[8],this.B[5],this.B[2]] = [this.D[0],this.D[3],this.D[6]];
+            [this.D[0],this.D[3],this.D[6]] = [this.F[0],this.F[3],this.F[6]];
+            [this.F[0],this.F[3],this.F[6]] = temp;
+        } else {
+            [this.U[0],this.U[3],this.U[6]] = [this.F[0],this.F[3],this.F[6]];
+            [this.F[0],this.F[3],this.F[6]] = [this.D[0],this.D[3],this.D[6]];
+            [this.D[0],this.D[3],this.D[6]] = [this.B[8],this.B[5],this.B[2]];
+            [this.B[8],this.B[5],this.B[2]] = temp;
+        }
+    }
+    cycleEdgesR(reverse = false) {
+        const temp = [this.U[2],this.U[5],this.U[8]];
+        if (!reverse) {
+            [this.U[2],this.U[5],this.U[8]] = [this.F[2],this.F[5],this.F[8]];
+            [this.F[2],this.F[5],this.F[8]] = [this.D[2],this.D[5],this.D[8]];
+            [this.D[2],this.D[5],this.D[8]] = [this.B[6],this.B[3],this.B[0]];
+            [this.B[6],this.B[3],this.B[0]] = temp;
+        } else {
+            [this.U[2],this.U[5],this.U[8]] = [this.B[6],this.B[3],this.B[0]];
+            [this.B[6],this.B[3],this.B[0]] = [this.D[2],this.D[5],this.D[8]];
+            [this.D[2],this.D[5],this.D[8]] = [this.F[2],this.F[5],this.F[8]];
+            [this.F[2],this.F[5],this.F[8]] = temp;
+        }
+    }
+
+    /* ---------- 5. History logging ---------- */
+    log(move) { this.history.push(move); }
+
+    /* ---------- 6. Scramble ---------- */
+    scramble(count = 25) {
+        const moves = [
+            ()=>this.U(), ()=>this.Uprime(),
+            ()=>this.D(), ()=>this.Dprime(),
+            ()=>this.F(), ()=>this.Fprime(),
+            ()=>this.B(), ()=>this.Bprime(),
+            ()=>this.L(), ()=>this.Lprime(),
+            ()=>this.R(), ()=>this.Rprime()
+        ];
+        for (let i=0;i<count;i++) moves[Math.floor(Math.random()*moves.length)]();
+    }
+
+    /* ---------- 7. Simple SVG renderer ---------- */
+    getCubeSvg(size=45) {
+        const colorMap = {r:'#ff4d4d',g:'#00e600',b:'#3399ff',y:'#ffcc00',o:'#ff9933',w:'#ffffff'};
+        const stroke = '#000';
+        const s = size; // square size
+        let svg = `<svg width="${s*12}" height="${s*9}" viewBox="0 0 ${s*12} ${s*9}">`;
+        const drawFace = (face,x0,y0) => {
+            let idx = 0;
+            for (let row=0;row<3;row++){
+                for (let col=0;col<3;col++){
+                    const cx = x0 + col*s;
+                    const cy = y0 + row*s;
+                    const c = colorMap[this[face][idx++]];
+                    svg += `<rect x="${cx}" y="${cy}" width="${s}" height="${s}" fill="${c}" stroke="${stroke}" stroke-width="2"/>`;
+                }
+            }
+        };
+        // layout:     U
+        //          L F R B
+        //             D
+        drawFace('U', s*3, 0);
+        drawFace('L', 0,   s*3);
+        drawFace('F', s*3, s*3);
+        drawFace('R', s*6, s*3);
+        drawFace('B', s*9, s*3);
+        drawFace('D', s*3, s*6);
+        svg += '</svg>';
+        return svg;
+    }
+
+    /* ---------- 8. Placeholder solve (layer-by-layer stub) ---------- */
+    demoSolve() {
+        // This is NOT an optimal solver – just a tiny stub that does a few moves
+        log('Demo solve started (stub)');
+        // pretend we did something:
+        this.history.push('(demo solve stub – 20 moves)');
+        log('Demo solve finished – check history');
+    }
 }
 
-// === Demo getCubeSvg function ===
-function getCubeSvg(colorString) {
-  // Simple visual: 6 faces displayed as colored 3x3 grids
-  let faces = ['U','D','F','B','L','R'];
-  let html = '';
-  for (let i = 0; i < faces.length; i++) {
-    html += `<h3>${faces[i]} face</h3><div style="display:grid;grid-template-columns:repeat(3,40px);gap:2px;margin:5px auto;width: max-content;">`;
-    for (let j = 0; j < 9; j++) {
-      html += `<div style="width:40px;height:40px;background:${colorString[i*9+j]};border:1px solid #333;"></div>`;
-    }
-    html += `</div>`;
-  }
-  return html;
-}
+/* ---------- 9. Browser glue ---------- */
+let cube = new Cube();
+const svgBox = document.getElementById('svgBox');
+const logBox = document.getElementById('log');
 
-// === Initialize Cube ===
-const cube = new RubiksCube();
-cube.displayCube();
+function render() { svgBox.innerHTML = cube.getCubeSvg(); }
+function log(msg) { logBox.textContent += msg + '\n'; logBox.scrollTop = logBox.scrollHeight; }
 
-// === Button Handlers ===
-document.getElementById('scrambleBtn').addEventListener('click', () => {
-  cube.scramble(15);
-  cube.displayCube();
-});
+function scramble() { cube.scramble(); render(); log('Scrambled – history length: '+cube.history.length); }
+function reset() { cube = new Cube(); render(); log('Reset cube'); }
+function demoSolve() { cube.demoSolve(); }
 
-document.getElementById('solveBtn').addEventListener('click', () => {
-  cube.solveDemo();
-});
-
+// initial render
+render();
 </script>
-
 </body>
 </html>
